@@ -11,7 +11,7 @@ side_effect: false
 # ticket_status_lookup
 
 Looks up the status and details of a previously created helpdesk ticket by its
-ticket ID. The ticket must exist in the local 	ickets/ directory. This is a
+ticket ID. The ticket must exist in the local `tickets/` directory. This is a
 read-only tool with no side effects.
 
 Input must be a valid ticket ID in the format LAB-XXXXXXXX (8 hex characters).
