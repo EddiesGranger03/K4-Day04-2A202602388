@@ -1,5 +1,9 @@
+<<<<<<< HEAD
 # tools.yaml — IT Helpdesk Agent Tool Declarations (Role B: Tool & Schema Engineer)
 # Schema specification for OpenAI/OpenRouter structured tool calling.
+=======
+# v3 — chốt ranh giới dữ liệu ra ngoài (external call) và dữ liệu nhạy cảm.
+>>>>>>> contrib/EddiesGranger03
 #
 # Rules & Boundaries:
 #   1. Synchronized tool names: clarify, search_kb, check_service_status, inspect_device,
@@ -11,6 +15,7 @@ tools:
   # ---------------- Core tools ----------------
   - name: clarify
     description: >-
+<<<<<<< HEAD
       Yêu cầu người dùng làm rõ hoặc cung cấp thêm thông tin khi thiếu định danh bắt buộc
       (chẳng hạn chưa có mã thiết bị asset_id, chưa có mã nhân viên employee_id, hoặc môi trường
       không xác định), hoặc dùng để XIN XÁC NHẬN từ người dùng trước khi thực hiện hành động ghi
@@ -58,10 +63,42 @@ tools:
           type: integer
           default: 3
           description: "Số lượng bài viết kết quả tối đa cần lấy (1 đến 5)."
+=======
+      Hỏi lại người dùng khi còn thiếu thông tin bắt buộc hoặc yêu cầu chưa rõ.
+      DÙNG KHI: thiếu asset ID / employee ID / tên dịch vụ, câu hỏi có thể hiểu
+      theo nhiều cách, hoặc cần người dùng chọn giữa các phương án.
+      DÙNG KHI: cần người dùng XÁC NHẬN trước một hành động ghi dữ liệu
+      (response_type = yes_no).
+      KHÔNG DÙNG KHI: thông tin đã có trong lượt trước hoặc trong tool result
+      trước đó — hỏi lại thông tin đã được cung cấp là lỗi. Mỗi lần chỉ hỏi MỘT
+      thông tin còn thiếu.
+    parameters:
+      type: object
+      properties:
+        question: {type: string, description: "Một câu hỏi duy nhất, nêu rõ thông tin cần bổ sung"}
+        response_type: {type: string, enum: [text, yes_no, choice], default: "text", description: "text khi cần người dùng nhập; yes_no khi cần xác nhận; choice khi có sẵn phương án"}
+        options: {type: array, default: [], items: {type: string}, description: "Bắt buộc khi response_type = choice; để trống với text và yes_no"}
+      required: [question, response_type]
+
+  - name: search_kb
+    description: >-
+      Tìm bài hướng dẫn kỹ thuật (cách làm, cách khắc phục sự cố) trong knowledge base.
+      DÙNG KHI: người dùng hỏi "làm thế nào để…", "sửa lỗi… ra sao".
+      KHÔNG DÙNG KHI: câu hỏi là về quy định, quyền hạn hay phê duyệt nội bộ (dùng
+      `policy`), hoặc cần trạng thái thời gian thực của dịch vụ (dùng
+      `check_service_status`).
+    parameters:
+      type: object
+      properties:
+        query: {type: string, description: "Triệu chứng hoặc thao tác cần hướng dẫn, viết theo lời người dùng"}
+        category: {type: string, enum: [all, vpn, email, wifi, printing, account, security, hardware, software, meeting_room], default: "all", description: "Chỉ đặt khi chủ đề rõ ràng; nếu không chắc, để 'all'"}
+        top_k: {type: integer, default: 3, description: "Số kết quả, 1–5"}
+>>>>>>> contrib/EddiesGranger03
       required: [query]
 
   - name: check_service_status
     description: >-
+<<<<<<< HEAD
       Kiểm tra trạng thái hoạt động và sức khỏe hiện tại của các DỊCH VỤ DÙNG CHUNG (shared services)
       toàn công ty, gồm: vpn, email, sso, wifi, printing trên môi trường production hoặc staging.
       KHÔNG dùng tool này để kiểm tra máy tính cá nhân hoặc thiết bị của một người dùng cụ thể (phải dùng inspect_device).
@@ -77,10 +114,23 @@ tools:
           enum: [production, staging]
           default: "production"
           description: "Môi trường triển khai của dịch vụ (production hoặc staging). Mặc định là production nếu không nói rõ."
+=======
+      Tra trạng thái của một DỊCH VỤ DÙNG CHUNG toàn công ty.
+      DÙNG KHI: nghi ngờ sự cố diện rộng ("cả phòng không vào được VPN", "email
+      có đang lỗi không").
+      KHÔNG DÙNG KHI: sự cố chỉ xảy ra trên một máy cụ thể — trường hợp đó dùng
+      `inspect_device`.
+    parameters:
+      type: object
+      properties:
+        service: {type: string, enum: [vpn, email, sso, wifi, printing], description: "Chỉ nhận đúng một trong các dịch vụ dùng chung đã liệt kê"}
+        environment: {type: string, enum: [production, staging], default: "production", description: "Mặc định production; chỉ đổi khi người dùng nói rõ"}
+>>>>>>> contrib/EddiesGranger03
       required: [service]
 
   - name: inspect_device
     description: >-
+<<<<<<< HEAD
       Kiểm tra thông tin chi tiết và dữ liệu chẩn đoán kỹ thuật (diagnostic snapshot) của MỘT THIẾT BỊ CỤ THỂ
       theo mã tài sản asset_id (ví dụ: LT-204, LT-318, DT-031, DT-087, PR-404). Hỗ trợ kiểm tra các nhóm chẩn đoán
       (check): all, network, vpn, security, hardware, software. KHÔNG dùng cho dịch vụ dùng chung toàn công ty (dùng check_service_status).
@@ -96,10 +146,22 @@ tools:
           enum: [all, network, vpn, security, hardware, software]
           default: "all"
           description: "Hạng mục chẩn đoán kỹ thuật cần kiểm tra trên thiết bị."
+=======
+      Chẩn đoán MỘT thiết bị cụ thể theo mã tài sản.
+      DÙNG KHI: sự cố gắn với một máy và người dùng đã cung cấp asset ID.
+      KHÔNG DÙNG KHI: chưa có asset ID — phải gọi `clarify` để hỏi trước, TUYỆT
+      ĐỐI không tự suy đoán hoặc tự sinh mã.
+    parameters:
+      type: object
+      properties:
+        asset_id: {type: string, description: "Mã tài sản do người dùng cung cấp trong hội thoại hiện tại (lượt này hoặc lượt trước), giữ nguyên văn; không tự tạo, không dùng giá trị mẫu"}
+        check: {type: string, enum: [all, network, vpn, security, hardware, software], default: "all", description: "Thu hẹp theo triệu chứng khi đã rõ; nếu không, để 'all'"}
+>>>>>>> contrib/EddiesGranger03
       required: [asset_id]
 
   - name: lookup_user
     description: >-
+<<<<<<< HEAD
       Tra cứu hồ sơ tài khoản nhân viên trong danh bạ nội bộ theo mã nhân viên employee_id (ví dụ: EMP-1001, EMP-1003, EMP-1007),
       bao gồm phòng ban, chức vụ, trạng thái tài khoản và danh sách thiết bị được cấp phát.
       TUYỆT ĐỐI KHÔNG tự đoán mã employee_id nếu người dùng chưa cung cấp rõ ràng (phải dùng clarify để hỏi).
@@ -109,18 +171,34 @@ tools:
         employee_id:
           type: string
           description: "Mã định danh nhân viên cần tra cứu trong danh bạ (ví dụ: EMP-1003)."
+=======
+      Tra cứu một nhân viên theo employee ID (phòng ban, liên hệ, thiết bị được cấp).
+      KHÔNG DÙNG KHI: chỉ có tên người mà không có employee ID — hỏi bằng
+      `clarify` trước. Không tự suy ra employee ID từ tên hay email.
+    parameters:
+      type: object
+      properties:
+        employee_id: {type: string, description: "Mã nhân viên do người dùng cung cấp, giữ nguyên văn"}
+>>>>>>> contrib/EddiesGranger03
       required: [employee_id]
 
   - name: format_incident_report
     description: >-
+<<<<<<< HEAD
       Định dạng các kết quả/phát hiện (findings) ĐÃ CÓ SẴN từ trước thành một báo cáo sự cố kỹ thuật hoàn chỉnh (markdown).
       CHỈ dùng tool này khi người dùng yêu cầu tổng hợp hoặc lập báo cáo từ các thông tin đã thu thập.
       TUYỆT ĐỐI KHÔNG gọi thêm các công cụ kiểm tra khác nếu người dùng chỉ yêu cầu format báo cáo từ kết quả sẵn có.
+=======
+      Trình bày các kết quả ĐÃ THU THẬP thành báo cáo. Đây là bước cuối, không
+      phải bước điều tra: mỗi finding phải lấy từ một tool result trước đó và
+      ghi rõ nguồn. Không thêm nhận định chưa có bằng chứng.
+>>>>>>> contrib/EddiesGranger03
     parameters:
       type: object
       properties:
         findings:
           type: array
+<<<<<<< HEAD
           default: []
           description: "Danh sách các phát hiện (findings) đã có sẵn để đưa vào báo cáo."
           items:
@@ -139,11 +217,25 @@ tools:
           type: string
           default: "IT incident"
           description: "Tiêu đề của báo cáo sự cố."
+=======
+          description: "Các kết quả đã thu thập; mảng rỗng là không hợp lệ"
+          items:
+            type: object
+            properties:
+              label: {type: string, description: "Hạng mục đã kiểm tra"}
+              detail: {type: string, description: "Kết quả thực tế từ tool"}
+              source: {type: string, description: "Tên tool đã cung cấp kết quả này"}
+              status: {type: string, description: "ok | warning | error | unknown"}
+            required: [label, detail, source]
+        template: {type: string, enum: [brief, technical, handoff], default: "brief", description: "brief cho người dùng cuối; technical cho IT; handoff khi chuyển đội khác"}
+        incident_title: {type: string, default: "IT incident", description: "Tiêu đề ngắn mô tả sự cố"}
+>>>>>>> contrib/EddiesGranger03
       required: [findings, template]
 
   # ---------------- Optional/advanced tools ----------------
   - name: search_device_info
     description: >-
+<<<<<<< HEAD
       Tìm kiếm thông tin công khai về một model thiết bị trên web thông qua Tavily Search API
       (thông số kỹ thuật specs, driver chính hãng, trang hỗ trợ support, độ tương thích compatibility).
       CHỈ truyền tên hãng (manufacturer), tên model công khai (model) và loại thông tin (query_type).
@@ -167,10 +259,29 @@ tools:
           type: integer
           default: 3
           description: "Số lượng kết quả tìm kiếm tối đa (1 đến 5)."
+=======
+      Tìm thông tin CÔNG KHAI về một model thiết bị trên web. ĐÂY LÀ TOOL GỌI
+      RA NGOÀI MẠNG NỘI BỘ.
+      CHỈ ĐƯỢC truyền: tên hãng công khai, tên model công khai, query_type.
+      TUYỆT ĐỐI KHÔNG truyền: asset ID, serial number, hostname, địa chỉ MAC/IP,
+      employee ID, username, email, ticket ID, tên người dùng, hoặc bất kỳ đoạn
+      text nào sao chép từ tool result nội bộ.
+      Nếu mới chỉ có asset ID: gọi `inspect_device` trước để lấy tên model công
+      khai, rồi mới gọi tool này với tên model đó. Nếu vẫn không xác định được
+      model công khai thì hỏi bằng `clarify`, không gửi mã nội bộ ra ngoài.
+    parameters:
+      type: object
+      properties:
+        manufacturer: {type: string, description: "Chỉ tên hãng công khai, ví dụ Lenovo / Dell / HP. Không kèm mã nội bộ"}
+        model: {type: string, description: "Chỉ tên model thương mại công khai, ví dụ ThinkPad T14 Gen 4. Không phải asset ID, không phải serial, không phải hostname"}
+        query_type: {type: string, enum: [specs, drivers, support, compatibility], default: "support", description: "Loại thông tin cần tìm"}
+        max_results: {type: integer, default: 3, description: "Số kết quả, 1–5"}
+>>>>>>> contrib/EddiesGranger03
       required: [manufacturer, model, query_type]
 
   - name: policy
     description: >-
+<<<<<<< HEAD
       Tra cứu các văn bản quy định và chính sách IT nội bộ của công ty (IT policies) liên quan đến:
       quyền truy cập (access_control), bảo vệ dữ liệu và quyền riêng tư (data_privacy), quy định sử dụng công cụ ngoài
       (external_tools), quy trình ứng phó sự cố (incident_response), vận hành dịch vụ (service_operations), và quy tắc tạo ticket (ticketing).
@@ -191,10 +302,23 @@ tools:
           type: integer
           default: 3
           description: "Số lượng điều khoản chính sách tối đa cần lấy."
+=======
+      Tra CHÍNH SÁCH IT NỘI BỘ: ai được phép làm gì, điều kiện phê duyệt, quy
+      định lưu trữ và xử lý sự cố.
+      DÙNG KHI: câu hỏi là "có được phép không", "quy định thế nào".
+      KHÔNG DÙNG KHI: câu hỏi là hướng dẫn thao tác kỹ thuật — dùng `search_kb`.
+    parameters:
+      type: object
+      properties:
+        query: {type: string, description: "Nội dung quy định cần tra"}
+        policy_area: {type: string, enum: [all, access_control, data_privacy, external_tools, incident_response, service_operations, ticketing], default: "all", description: "Chỉ đặt khi đã rõ nhóm chính sách"}
+        top_k: {type: integer, default: 3, description: "Số mục, 1–5"}
+>>>>>>> contrib/EddiesGranger03
       required: [query]
 
   - name: create_ticket
     description: >-
+<<<<<<< HEAD
       Tạo mới một ticket hỗ trợ sự cố IT trong hệ thống. Đây là HÀNH ĐỘNG GHI (write action) có tác dụng phụ.
       CHỈ ĐƯỢC PHÉP GỌI khi và chỉ khi người dùng đã XÁC NHẬN RÕ RÀNG trong hội thoại (confirmed=true).
       Nếu chưa có xác nhận rõ ràng, hoặc thông tin ticket (priority, summary, asset_id) vừa bị thay đổi,
@@ -221,3 +345,20 @@ tools:
           default: false
           description: "Bắt buộc phải là true khi người dùng đã xác nhận rõ ràng muốn tạo ticket."
       required: [summary]
+=======
+      Tạo ticket hỗ trợ. Đây là hành động GHI DỮ LIỆU, không phải hành động tra
+      cứu — chỉ gọi khi người dùng thực sự muốn mở ticket, không gọi để "ghi
+      nhận" một câu hỏi thông thường.
+      QUY TRÌNH BẮT BUỘC: (1) đề xuất summary/priority/asset_id bằng `clarify`
+      với response_type = yes_no; (2) chỉ gọi tool này ở lượt SAU khi người dùng
+      đã đồng ý rõ ràng. Không bao giờ gọi `create_ticket` và `clarify` xác nhận
+      trong cùng một lượt.
+    parameters:
+      type: object
+      properties:
+        summary: {type: string, description: "Tóm tắt triệu chứng theo mô tả của người dùng. Không chứa password, MFA/OTP, token, session key hay dữ liệu cá nhân ngoài phạm vi sự cố"}
+        priority: {type: string, enum: [low, medium, high, critical], default: "medium", description: "critical/high chỉ khi ảnh hưởng diện rộng hoặc chặn hoàn toàn công việc"}
+        asset_id: {type: string, default: "", description: "Chỉ điền khi người dùng đã cung cấp; để trống nếu chưa có, không tự đoán"}
+        confirmed: {type: boolean, default: false, description: "Chỉ đặt true khi người dùng đã đồng ý tạo ticket ở một lượt TRƯỚC đó; im lặng, câu hỏi tiếp theo hoặc lời cảm ơn không phải là đồng ý"}
+      required: [summary, confirmed]
+>>>>>>> contrib/EddiesGranger03
