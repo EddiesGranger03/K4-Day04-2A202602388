@@ -67,12 +67,14 @@ IT Helpdesk Agent hỗ trợ nhân viên giải quyết các sự cố công ngh
 
 ## B1. Version evidence
 
-| Version | Prompt/tool change | Hypothesis | Metric | Before | After | Run file |
-|---|---|---|---|---:|---:|---|
-| **v0** | Baseline starter | Điểm xuất phát ban đầu, chưa tối ưu prompt và tools declaration | `tool_choice_accuracy` | — | 50.0% | `runs/v0_B_adversarial_openrouter_20260914T190007744224.json` |
-| **v1** | Cấm đoán ID trong `system_prompt.md`; phân định rõ ranh giới shared service vs device | Nếu cấm đoán ID và tách rõ ranh giới dịch vụ chung, tỷ lệ chọn sai tool ở nhóm thiếu thông tin giảm $\ge 50\%$ | `tool_routing_accuracy` | 50.0% | 80.0% | `runs/v1_B_adversarial_openrouter_20260914T192340801202.json` |
-| **v2** | Bắt buộc carry-over entity qua multi-turn; quy định quy trình xác nhận 2 bước cho `create_ticket` | Bắt buộc xác nhận 2 bước giúp đưa tỷ lệ tạo ticket trái phép về 0% và giảm lỗi mất ngữ cảnh | `multiturn_accuracy` | 60.0% | 90.0% | `runs/v3_B_base_openrouter_20260914T190043081588.json` |
-| **v3** | Chặn rò rỉ dữ liệu nhạy cảm; tích hợp Bonus Tool `ticket_status_lookup` và hoàn thiện schema | Giới hạn dữ liệu gửi ra web search và bổ sung guardrails giúp bảo vệ an toàn nội bộ đạt chuẩn | `team_eval_pass_rate` | 70.0% | **100.0%** | `runs/v3_B_group_openrouter_20260914T200708628709.json` |
+| Version | Author | Prompt/tool change | Hypothesis | Metric | Before | After | Run file |
+|---|---|---|---|---|---:|---:|---|
+| **v0** | Team | Baseline starter | Điểm xuất phát ban đầu, chưa tối ưu prompt và tools declaration | `tool_choice_accuracy` | 0.0% | 50.0% | `runs/v0_B_adversarial_openrouter_20260914T190007744224.json` |
+| **v1** | Uyên (A) | Cấm đoán ID trong `system_prompt.md`; phân định rõ ranh giới shared service vs device | Nếu cấm đoán ID và tách rõ ranh giới dịch vụ chung, tỷ lệ chọn sai tool ở nhóm thiếu thông tin giảm đáng kể | `tool_routing_accuracy` | 50.0% | 80.0% | `runs/v1_B_adversarial_openrouter_20260914T192340801202.json` |
+| **v2** | Hoàng (B) | Bổ sung chi tiết "DÙNG KHI/KHÔNG DÙNG KHI" và ràng buộc enum trong `tools.yaml` | Mô tả rõ ràng ranh giới capability giúp giảm thiểu lỗi chọn sai tool và sai argument | `argument_accuracy` | 50.0% | 70.0% | `runs/v3_B_base_openrouter_20260914T190043081588.json` |
+| **v3-E** | Khang (E) | Xây dựng Bonus Tool `ticket_status_lookup` và mock tickets | Bonus tool tra cứu trạng thái ticket an toàn với regex validate mã hex 8 ký tự | `bonus_tool_pass_rate` | 0.0% | 100.0% | `runs/v3_B_group_openrouter_20260914T200708628709.json` |
+| **v3-C** | Sơn (C - Lead) | Thiết kế 11 test cases gốc (5 single, 5 multi, 1 bonus) trong `eval_group.json` | Bộ test bao phủ slot-filling, context correction, cancellation và stale confirmation đo đạc toàn vẹn agent | `team_eval_pass_rate` | 70.0% | **100.0%** | `runs/v3_B_group_openrouter_20260914T200708628709.json` |
+| **v3-D** | Hiệp (D) | Tích hợp Streamlit Live Chat UI (`app.py`), trace hiển thị và tổng hợp `REPORT.md` | Giao diện Live Chat minh bạch hóa quá trình suy luận, hỗ trợ hội thoại nhiều lượt ổn định | `multiturn_accuracy` | 60.0% | 100.0% | `runs/v3_B_group_openrouter_20260914T200708628709.json` |
 
 ---
 
