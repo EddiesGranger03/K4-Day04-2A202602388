@@ -259,7 +259,7 @@
           "role": "user",
           "content": "Tìm trong danh mục email bài viết hướng dẫn cấu hình cho Outlook giúp mình."
         }
-      ],
+      ],  
       "failure_type": "wrong_tool",
       "expect": {
         "tool_calls": [
