@@ -1,7 +1,281 @@
 {
   "dataset_id": "day04_v3_helpdesk_group",
   "dataset_role": "group",
-  "description": "Template intentionally left empty. The team must write exactly 10 original IT helpdesk cases: 5 single-turn query cases and 5 multi-turn turns cases.",
-  "allowed_failure_types": ["wrong_tool", "wrong_arg_value", "wrong_boundary", "unnecessary_tool", "out_of_scope", "missing_info"],
-  "cases": []
+  "description": "Original team-authored evaluation dataset containing 10 cases: 5 single-turn queries and 5 multi-turn conversations.",
+  "allowed_failure_types": [
+    "wrong_tool",
+    "wrong_arg_value",
+    "wrong_boundary",
+    "unnecessary_tool",
+    "out_of_scope",
+    "missing_info"
+  ],
+  "cases": [
+    {
+      "id": "G01_inspect_device_network",
+      "phase": "B",
+      "query": "Kiểm tra kết nối mạng và Wi-Fi của laptop LT-240 xem có vấn đề gì không.",
+      "failure_type": "wrong_arg_value",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "inspect_device",
+            "args": {
+              "asset_id": "LT-240",
+              "check": "network"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "device_check_arg",
+        "difficulty": "easy",
+        "what_it_tests": "Trích xuất đúng mã tài sản LT-240 và chỉ kiểm tra network, không để mặc định check=all."
+      }
+    },
+    {
+      "id": "G02_check_sso_status",
+      "phase": "B",
+      "query": "Hệ thống đăng nhập một lần (SSO) trên môi trường production hiện tại có hoạt động bình thường không?",
+      "failure_type": "wrong_tool",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "check_service_status",
+            "args": {
+              "service": "sso"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "route_shared_service",
+        "difficulty": "easy",
+        "what_it_tests": "Dịch vụ SSO trên production phải dùng check_service_status với service=sso và environment=production, không kiểm tra thiết bị cá nhân."
+      }
+    },
+    {
+      "id": "G03_missing_employee_id",
+      "phase": "B",
+      "query": "Tra cứu thông tin tài khoản và phòng ban của nhân viên An giúp mình.",
+      "failure_type": "missing_info",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "clarify",
+            "args": {
+              "response_type": "text"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "clarify_missing_id",
+        "difficulty": "medium",
+        "what_it_tests": "Chỉ có tên người không có mã nhân viên định danh (EMP-xxxx), agent phải gọi clarify để hỏi lại, không được tự đoán bừa."
+      }
+    },
+    {
+      "id": "G04_policy_data_privacy",
+      "phase": "B",
+      "query": "Chính sách IT của công ty quy định thế nào về bảo mật thông tin và quyền riêng tư dữ liệu?",
+      "failure_type": "wrong_tool",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "policy",
+            "args": {
+              "policy_area": "data_privacy"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "route_policy",
+        "difficulty": "medium",
+        "what_it_tests": "Yêu cầu tra cứu chính sách IT nội bộ phải gọi tool policy với policy_area=data_privacy, không gọi search_kb."
+      }
+    },
+    {
+      "id": "G05_out_of_scope_movie",
+      "phase": "B",
+      "query": "Tìm giúp mình danh sách các rạp chiếu phim gần văn phòng và lịch chiếu phim hôm nay.",
+      "failure_type": "out_of_scope",
+      "expect": {
+        "no_tool": true,
+        "behavior": "refuse"
+      },
+      "metadata": {
+        "skill": "out_of_scope",
+        "difficulty": "easy",
+        "what_it_tests": "Yêu cầu đời sống/giải trí ngoài phạm vi IT Helpdesk phải từ chối lịch sự và không gọi bất kỳ tool nào."
+      }
+    },
+    {
+      "id": "G06_multiturn_clarify_asset",
+      "phase": "B",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Máy tính của mình bị lỗi khởi động chậm và phần cứng có tiếng kêu lạ."
+        },
+        {
+          "role": "user",
+          "content": "Mã máy của mình dán ở mặt sau là DT-087."
+        },
+        {
+          "role": "user",
+          "content": "Kiểm tra phần cứng trên đúng máy DT-087 đó giúp mình."
+        }
+      ],
+      "failure_type": "missing_info",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "inspect_device",
+            "args": {
+              "asset_id": "DT-087",
+              "check": "hardware"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "multiturn_fill_asset",
+        "difficulty": "medium",
+        "what_it_tests": "Người dùng bổ sung asset_id DT-087 ở lượt sau, agent phải giữ đúng mã máy và chọn check=hardware."
+      }
+    },
+    {
+      "id": "G07_multiturn_service_correction",
+      "phase": "B",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Kiểm tra trạng thái hệ thống email staging."
+        },
+        {
+          "role": "user",
+          "content": "À nhầm, mình muốn kiểm tra dịch vụ in ấn printing cơ, vẫn là môi trường staging."
+        },
+        {
+          "role": "user",
+          "content": "Chỉ kiểm tra printing staging thôi nhé."
+        }
+      ],
+      "failure_type": "wrong_arg_value",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "check_service_status",
+            "args": {
+              "service": "printing",
+              "environment": "staging"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "multiturn_correction",
+        "difficulty": "hard",
+        "what_it_tests": "Người dùng sửa service từ email thành printing, agent phải đổi service=printing và giữ nguyên environment=staging."
+      }
+    },
+    {
+      "id": "G08_multiturn_cancellation",
+      "phase": "B",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Tra cứu nhân viên EMP-1006 giúp mình."
+        },
+        {
+          "role": "user",
+          "content": "Thôi mình tự tra được trên portal rồi, không cần kiểm tra nữa đâu."
+        },
+        {
+          "role": "user",
+          "content": "Cảm ơn bạn nhé."
+        }
+      ],
+      "failure_type": "unnecessary_tool",
+      "expect": {
+        "no_tool": true,
+        "behavior": "answer_without_tool"
+      },
+      "metadata": {
+        "skill": "multiturn_cancellation",
+        "difficulty": "medium",
+        "what_it_tests": "Người dùng đã hủy yêu cầu, lượt cuối chỉ là lời cảm ơn nên không được gọi tool thừa thãi."
+      }
+    },
+    {
+      "id": "G09_multiturn_ticket_confirm_boundary",
+      "phase": "B",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Tạo ticket lỗi mạng cho máy LT-411 mức low."
+        },
+        {
+          "role": "user",
+          "content": "Khoan đã, đổi mức ưu tiên lên critical vì đây là máy làm việc từ xa đang bị chặn công việc gấp."
+        },
+        {
+          "role": "user",
+          "content": "Hãy tổng hợp lại thông tin và hỏi xác nhận mình trước khi tạo ticket nhé."
+        }
+      ],
+      "failure_type": "wrong_boundary",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "clarify",
+            "args": {
+              "response_type": "yes_no"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "stale_confirmation_boundary",
+        "difficulty": "hard",
+        "what_it_tests": "Khi thông tin quan trọng thay đổi (low -> critical), agent vẫn phải dừng lại yêu cầu xác nhận (clarify yes_no) trước khi tạo ticket, không tự ý thực hiện write action."
+      }
+    },
+    {
+      "id": "G10_multiturn_switch_kb_search",
+      "phase": "B",
+      "turns": [
+        {
+          "role": "user",
+          "content": "Tìm hướng dẫn cài đặt VPN trên máy tính Mac."
+        },
+        {
+          "role": "user",
+          "content": "À mình kết nối được VPN rồi, nhưng Outlook lại không nhận email."
+        },
+        {
+          "role": "user",
+          "content": "Tìm trong danh mục email bài viết hướng dẫn cấu hình cho Outlook giúp mình."
+        }
+      ],
+      "failure_type": "wrong_tool",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "search_kb",
+            "args": {
+              "category": "email"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "multiturn_switch_kb",
+        "difficulty": "medium",
+        "what_it_tests": "Người dùng chuyển hướng vấn đề sang lỗi Outlook, agent phải chuyển category tìm kiếm sang email, không tìm lại VPN cũ."
+      }
+    }
+  ]
 }
