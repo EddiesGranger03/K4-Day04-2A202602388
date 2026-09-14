@@ -6,6 +6,5 @@ __pycache__/
 .env.*
 !.env.example
 /tickets/
-/runs/
-/transcripts/
+# runs/ and transcripts/ are submission evidence (README), so they are tracked.
 /analysis/

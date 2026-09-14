@@ -1,0 +1,77 @@
+# Theme for app.py — "rose trace": blush canvas, raspberry actions, wine sidebar.
+# Contrast: text on canvas > 12:1, white on primary ~6:1 (WCAG AA).
+
+[server]
+runOnSave = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+font = "'Be Vietnam Pro':https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap"
+headingFont = "'Be Vietnam Pro':https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@600;700&display=swap"
+codeFont = "'JetBrains Mono':https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+baseFontSize = 15
+codeFontSize = "13px"
+headingFontSizes = ["30px", "22px", "18px", "16px", "14px", "13px"]
+headingFontWeights = [700, 650, 600, 600, 600, 600]
+baseRadius = "10px"
+buttonRadius = "full"
+showWidgetBorder = true
+showSidebarBorder = false
+linkUnderline = false
+
+[theme.light]
+primaryColor = "#BE185D"
+backgroundColor = "#FFF7FA"
+secondaryBackgroundColor = "#FCE7F0"
+textColor = "#2B1020"
+borderColor = "#F2C4D6"
+linkColor = "#9D174D"
+codeTextColor = "#831843"
+codeBackgroundColor = "#FDF0F5"
+dataframeHeaderBackgroundColor = "#FCE7F0"
+redColor = "#B91C1C"
+orangeColor = "#B45309"
+yellowColor = "#A16207"
+greenColor = "#15803D"
+blueColor = "#1D4ED8"
+violetColor = "#7E22CE"
+grayColor = "#7A5A6A"
+chartCategoricalColors = ["#BE185D", "#F472B6", "#7E22CE", "#FB7185", "#9D174D", "#C084FC", "#7A5A6A"]
+
+[theme.light.sidebar]
+backgroundColor = "#4A0E2E"
+secondaryBackgroundColor = "#62183F"
+codeBackgroundColor = "#3A0A24"
+codeTextColor = "#FBCFE8"
+textColor = "#FCE7F0"
+borderColor = "#7D2A55"
+primaryColor = "#F9A8D4"
+linkColor = "#F9A8D4"
+
+[theme.dark]
+primaryColor = "#F472B6"
+backgroundColor = "#1B0A13"
+secondaryBackgroundColor = "#2B1220"
+textColor = "#FCE7F0"
+borderColor = "#4A2236"
+linkColor = "#F9A8D4"
+codeTextColor = "#FBCFE8"
+codeBackgroundColor = "#24101B"
+dataframeHeaderBackgroundColor = "#2B1220"
+redColor = "#F87171"
+orangeColor = "#FB923C"
+yellowColor = "#FACC15"
+greenColor = "#4ADE80"
+blueColor = "#60A5FA"
+violetColor = "#C084FC"
+grayColor = "#C4A3B4"
+chartCategoricalColors = ["#F472B6", "#F9A8D4", "#C084FC", "#FB7185", "#DB2777", "#E9D5FF", "#C4A3B4"]
+
+[theme.dark.sidebar]
+backgroundColor = "#12050C"
+secondaryBackgroundColor = "#2B1220"
+codeBackgroundColor = "#1B0A13"
+textColor = "#FCE7F0"
+borderColor = "#4A2236"

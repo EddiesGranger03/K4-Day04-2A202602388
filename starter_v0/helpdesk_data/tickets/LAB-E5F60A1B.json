@@ -1,0 +1,8 @@
+﻿{
+  "ticket_id": "LAB-E5F60A1B",
+  "summary": "Wi-Fi disconnects intermittently on LT-240, driver may be outdated",
+  "priority": "medium",
+  "asset_id": "LT-240",
+  "created_at": "2026-09-14T11:30:00+00:00",
+  "source": "educational_local_mock"
+}
