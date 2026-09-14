@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -14,6 +14,7 @@ from .lookup_user.tool import lookup_user
 from .policy.tool import search_company_policy
 from .search_kb.tool import search_kb
 from .search_device_info.tool import search_device_info
+from .ticket_status_lookup.tool import ticket_status_lookup
 
 
 # NOTE (starter_v0): these keys are the names the model sees AND the names
@@ -31,6 +32,7 @@ TOOL_FUNCTIONS = {
     "format_incident_report": format_incident_report,
     "policy": search_company_policy,
     "create_ticket": create_ticket,
+    "ticket_status_lookup": ticket_status_lookup,
 }
 
 
