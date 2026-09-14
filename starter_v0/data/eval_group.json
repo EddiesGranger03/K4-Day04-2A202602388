@@ -1,7 +1,7 @@
 {
   "dataset_id": "day04_v3_helpdesk_group",
   "dataset_role": "group",
-  "description": "Original team-authored evaluation dataset containing 10 cases: 5 single-turn queries and 5 multi-turn conversations.",
+  "description": "Original team-authored evaluation dataset containing 10 core cases (5 single-turn queries, 5 multi-turn conversations) and 1 bonus tool eval case.",
   "allowed_failure_types": [
     "wrong_tool",
     "wrong_arg_value",
@@ -275,6 +275,28 @@
         "skill": "multiturn_switch_kb",
         "difficulty": "medium",
         "what_it_tests": "Người dùng chuyển hướng vấn đề sang lỗi Outlook, agent phải chuyển category tìm kiếm sang email, không tìm lại VPN cũ."
+      }
+    },
+    {
+      "id": "G_bonus_ticket_lookup",
+      "phase": "B",
+      "suite": "group",
+      "query": "Kiểm tra trạng thái ticket LAB-A1B2C3D4 giúp mình.",
+      "failure_type": "wrong_tool",
+      "expect": {
+        "tool_calls": [
+          {
+            "name": "ticket_status_lookup",
+            "args": {
+              "ticket_id": "LAB-A1B2C3D4"
+            }
+          }
+        ]
+      },
+      "metadata": {
+        "skill": "ticket_lookup",
+        "difficulty": "easy",
+        "what_it_tests": "Tra cứu ticket dùng ticket_status_lookup, không dùng tool khác."
       }
     }
   ]
