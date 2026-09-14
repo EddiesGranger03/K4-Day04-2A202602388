@@ -105,3 +105,16 @@ tools:
         asset_id: {type: string, default: "", description: "Mã tài sản nếu có"}
         confirmed: {type: boolean, default: false, description: "Đã được người dùng xác nhận"}
       required: [summary]
+
+  # ---------------- Bonus tool (team-built) ----------------
+  - name: ticket_status_lookup
+    description: >-
+      Tra cứu trạng thái và chi tiết một ticket hỗ trợ đã tạo trước đó. Chỉ
+      dùng khi người dùng cung cấp ticket ID cụ thể (dạng LAB-XXXXXXXX). Không
+      tự đoán ticket_id. Không dùng cho asset ID (LT-xxx) hoặc employee ID
+      (EMP-xxx).
+    parameters:
+      type: object
+      properties:
+        ticket_id: {type: string, description: "Mã ticket dạng LAB-XXXXXXXX (8 ký tự hex hoa)"}
+      required: [ticket_id]

@@ -1,0 +1,8 @@
+﻿{
+  "ticket_id": "LAB-A1B2C3D4",
+  "summary": "VPN AUTH_TIMEOUT on LT-204, user cannot connect to corporate VPN",
+  "priority": "high",
+  "asset_id": "LT-204",
+  "created_at": "2026-09-14T10:00:00+00:00",
+  "source": "educational_local_mock"
+}
