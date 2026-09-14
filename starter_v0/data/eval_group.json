@@ -1,11 +1,7 @@
 {
   "dataset_id": "day04_v3_helpdesk_group",
   "dataset_role": "group",
-<<<<<<< HEAD
-  "description": "Original team-authored evaluation dataset containing 10 core cases (5 single-turn queries, 5 multi-turn conversations) and 1 bonus tool eval case.",
-=======
   "description": "Original team-authored evaluation dataset containing 11 cases: 5 single-turn queries and 5 multi-turn conversations (G01-G10), plus 1 single-turn case for the team-built ticket_status_lookup bonus tool.",
->>>>>>> origin/feat/QuocHiep123
   "allowed_failure_types": [
     "wrong_tool",
     "wrong_arg_value",
@@ -18,7 +14,7 @@
     {
       "id": "G01_inspect_device_network",
       "phase": "B",
-      "query": "Kiểm tra kết nối mạng và Wi-Fi của laptop LT-240 xem có vấn đề gì không.",
+      "query": "Kiểm tra tình trạng kết nối mạng của laptop LT-240 xem có vấn đề gì không.",
       "failure_type": "wrong_arg_value",
       "expect": {
         "tool_calls": [
