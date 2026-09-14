@@ -11,8 +11,9 @@ side_effect: false
 # ticket_status_lookup
 
 Looks up the status and details of a previously created helpdesk ticket by its
-ticket ID. The ticket must exist in the local `tickets/` directory. This is a
-read-only tool with no side effects.
+ticket ID. It reads tickets created at runtime in `tickets/` (gitignored) first,
+then the committed mock tickets in `helpdesk_data/tickets/`. This is a read-only
+tool with no side effects.
 
 Input must be a valid ticket ID in the format LAB-XXXXXXXX (8 hex characters).
 Returns the full ticket record if found, or an error if the ticket does not exist

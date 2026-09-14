@@ -8,6 +8,8 @@ from tools._shared import ROOT, err
 
 
 TICKET_DIR = ROOT / "tickets"
+# Committed mock tickets; tickets/ only holds files written at runtime and is gitignored.
+FIXTURE_DIR = ROOT / "helpdesk_data" / "tickets"
 TICKET_ID_PATTERN = re.compile(r"^LAB-[A-Fa-f0-9]{8}$")
 SENSITIVE_DATA_PATTERN = re.compile(
     r"\b(?:password|passwd|token|api[ _-]?key|mfa|otp|recovery[ _-]?code)"
@@ -41,9 +43,10 @@ def ticket_status_lookup(ticket_id: str = "") -> dict[str, Any]:
             "expected_format": "LAB-XXXXXXXX (8 hex characters)",
         }
 
-    ticket_path = TICKET_DIR / f"{normalized}.json"
+    candidates = [directory / f"{normalized}.json" for directory in (TICKET_DIR, FIXTURE_DIR)]
+    ticket_path = next((path for path in candidates if path.exists()), None)
 
-    if not ticket_path.exists():
+    if ticket_path is None:
         return {
             "tool": "ticket_status_lookup",
             "error": "ticket_not_found",
