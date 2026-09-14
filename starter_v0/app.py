@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +20,24 @@ import streamlit as st
 from chat import ARTIFACTS_DIR, ROOT, now_iso, run_model_tool_loop, safe_slug, trim_history, write_transcript
 from providers import make_provider
 from tools import load_tool_declarations, to_openai_tools
+from ui_team import (
+    EVAL_SETS,
+    case_user_turns,
+    check_tavily_boundary,
+    expected_summary,
+    grade_turn,
+    list_run_files,
+    load_eval_set,
+    load_run,
+    load_version_log,
+    matching_version,
+    run_case_rows,
+    run_is_valid,
+    run_summary_row,
+    tool_group,
+    tool_metadata,
+    validate_tools_schema,
+)
 from ui_trace import TracingProvider, format_ms, turn_log
 from versioning import artifact_version_dict, build_artifact_version
 
@@ -36,7 +55,13 @@ SCENARIOS = {
     ":material/help: Thiếu mã thiết bị": "Laptop của mình không vào được VPN, kiểm tra máy giúp nhé.",
     ":material/call_split: Hai tool một lượt": "Email production có lỗi không, và kiểm tra luôn máy LT-318 giúp mình.",
     ":material/lock: Hành động cần xác nhận": "Tạo ticket mức medium cho lỗi máy in tầng 3.",
+    ":material/confirmation_number: Tra cứu ticket": "Ticket LAB-A1B2C3D4 hiện đang ở trạng thái nào?",
 }
+
+CHAT_TAB = ":material/forum: Hội thoại"
+EVAL_TAB = ":material/fact_check: Eval"
+LOG_TAB = ":material/receipt_long: Nhật ký chạy"
+ARTIFACT_TAB = ":material/fingerprint: Artifact"
 
 STATUS_BADGES = {
     "answered": ("green", ":material/check_circle:", "Đã trả lời"),
@@ -44,6 +69,8 @@ STATUS_BADGES = {
     "max_tool_rounds": ("red", ":material/warning:", "Chạm giới hạn vòng"),
     "provider_error": ("red", ":material/error:", "Lỗi provider"),
 }
+
+SIDE_EFFECT_LABELS = {"False": "không", "True": "có", "local_file_write": "ghi file local", "None": "không rõ"}
 
 LOG_KINDS = ["user", "model", "tool", "tool_error", "ticket_write", "reply", "error"]
 
@@ -60,6 +87,9 @@ def init_state() -> None:
     st.session_state.setdefault("transcript", None)
     st.session_state.setdefault("transcript_path", None)
     st.session_state.setdefault("pending_prompt", None)
+    st.session_state.setdefault("pending_turns", [])
+    st.session_state.setdefault("eval_case", None)
+    st.session_state.setdefault("role_b_checks", {})
 
 
 def reset_conversation() -> None:
@@ -68,6 +98,21 @@ def reset_conversation() -> None:
     st.session_state.transcript = None
     st.session_state.transcript_path = None
     st.session_state.pending_prompt = None
+    st.session_state.pending_turns = []
+    st.session_state.eval_case = None
+
+
+def start_eval_case(case: dict[str, Any]) -> None:
+    """Replay an eval case's user turns in a fresh conversation, then grade the last turn."""
+    reset_conversation()
+    st.session_state.pending_turns = case_user_turns(case)
+    st.session_state.eval_case = case
+    st.session_state.main_tab = CHAT_TAB
+
+
+def run_role_b_check(name: str) -> None:
+    check = validate_tools_schema if name == "schema" else check_tavily_boundary
+    st.session_state.role_b_checks[name] = check()
 
 
 def ticket_files() -> set[str]:
@@ -216,6 +261,8 @@ def tool_outcome(result: Any) -> tuple[str, str]:
         return ":material/edit_document:", "đã ghi ticket"
     if result.get("status") == "needs_confirmation":
         return ":material/lock:", "chặn lại, cần xác nhận"
+    if result.get("status") == "found":
+        return ":material/confirmation_number:", "tìm thấy ticket"
     return ":material/check:", "trả kết quả"
 
 
@@ -321,6 +368,27 @@ def render_turn(turn: dict[str, Any]) -> None:
                     icon=":material/edit_document:",
                     color="orange",
                 )
+        if turn.get("eval_grade"):
+            render_eval_grade(turn["eval_grade"])
+
+
+def render_eval_grade(grade: dict[str, Any]) -> None:
+    passed = grade.get("passed")
+    with st.container(border=True):
+        with st.container(horizontal=True, gap="small", vertical_alignment="center"):
+            st.badge(
+                f"{grade['case_id']} {'PASS' if passed else 'FAIL'}",
+                icon=":material/check_circle:" if passed else ":material/cancel:",
+                color="green" if passed else "red",
+            )
+            if grade.get("observed_mismatch"):
+                st.badge(grade["observed_mismatch"], color="gray")
+        if grade.get("expected"):
+            st.caption(f"Kỳ vọng: `{grade['expected']}`")
+        actual = ", ".join(call["name"] for call in grade.get("actual_tool_calls") or []) or "không gọi tool"
+        st.caption(f"Vòng đầu của lượt cuối đã gọi: `{actual}`")
+        for failure in grade.get("failures") or []:
+            st.markdown(f"- {failure}")
 
 
 # ---------------------------------------------------------------- sidebar
@@ -334,7 +402,17 @@ def render_sidebar() -> tuple[dict[str, Any], Any]:
         provider = st.selectbox("Provider", PROVIDERS, key="provider")
         default_model = getattr(make_provider(provider), "default_model", "")
         model = st.text_input("Model", value=default_model, key=f"model_{provider}").strip()
-        version = st.text_input("Nhãn version", value="v0", key="version").strip() or "v0"
+        hashes = build_artifact_version("probe", SYSTEM_PROMPT_PATH, TOOLS_PATH)
+        log_rows = load_version_log()
+        matched = matching_version(log_rows, hashes.prompt_hash, hashes.tools_hash)
+        main_line = [row["version"] for row in log_rows if re.fullmatch(r"v\d+", row.get("version") or "")]
+        suggested = matched or (f"{main_line[-1]}-dev" if main_line else "v0")
+        version = st.text_input(
+            "Nhãn version",
+            value=suggested,
+            key="version",
+            help="Tự điền theo dòng trong version_log.csv khớp hash; thêm hậu tố -dev nếu artifact chưa được ghi log.",
+        ).strip() or suggested
         history_window = st.number_input("Số cặp hội thoại giữ lại", 0, 20, 5, key="history_window")
         max_tool_rounds = st.number_input("Số vòng tool tối đa", 1, 10, 4, key="max_tool_rounds")
         st.button("Hội thoại mới", icon=":material/add_comment:", on_click=reset_conversation, width="stretch")
@@ -455,6 +533,126 @@ def render_log_tab() -> None:
         )
 
 
+def percent(value: float | None) -> str:
+    return "–" if value is None else f"{value * 100:.1f}%".replace(".", ",")
+
+
+@st.cache_data(max_entries=32, show_spinner=False)
+def cached_run(path: str, mtime: float) -> dict[str, Any]:
+    return load_run(path)
+
+
+def render_eval_tab() -> None:
+    st.subheader("Chạy thử một case eval", icon=":material/checklist:")
+    st.caption(
+        "Chọn một case để chạy lại các lượt của người dùng trong tab Hội thoại. Lượt cuối được chấm bằng "
+        "`evaluate_phase_b` của run_eval.py. Khác run_eval ở chỗ các lượt trước chạy tool thật và không ép "
+        "tool_choice, nên phần này dùng để soát lỗi và demo; số liệu cho report vẫn lấy từ run_eval."
+    )
+    set_label = st.segmented_control("Bộ eval", list(EVAL_SETS), default=list(EVAL_SETS)[0], required=True, key="eval_set")
+    dataset = load_eval_set(EVAL_SETS[set_label])
+    cases = dataset.get("cases", [])
+    single_count = sum("turns" not in case for case in cases)
+    st.caption(f"{len(cases)} case: {single_count} single-turn, {len(cases) - single_count} multi-turn.")
+
+    table = st.dataframe(
+        [
+            {
+                "Case": case["id"],
+                "Kiểu": "multi-turn" if "turns" in case else "single-turn",
+                "Failure type": case.get("failure_type"),
+                "Kỳ vọng": expected_summary(case),
+                "Kiểm tra điều gì": case.get("metadata", {}).get("what_it_tests", ""),
+            }
+            for case in cases
+        ],
+        hide_index=True,
+        height=(min(len(cases), 12) + 1) * 35 + 3,
+        on_select="rerun",
+        selection_mode="single-row",
+        key=f"eval_cases_{set_label}",
+        column_config={"Kiểm tra điều gì": st.column_config.TextColumn(width="large")},
+    )
+    if not table.selection.rows:
+        st.caption("Bấm vào một dòng để xem chi tiết và chạy case.")
+    else:
+        case = cases[table.selection.rows[0]]
+        with st.container(border=True):
+            st.markdown(f"**{case['id']}**")
+            st.caption(case.get("metadata", {}).get("what_it_tests", ""))
+            for index, text in enumerate(case_user_turns(case), start=1):
+                st.markdown(f"{index}. {text}")
+            st.caption(f"Kỳ vọng ở lượt cuối: `{expected_summary(case)}`")
+            st.button(
+                "Chạy case này trong hội thoại",
+                icon=":material/play_arrow:",
+                type="primary",
+                on_click=start_eval_case,
+                args=(case,),
+                key=f"run_case_{case['id']}",
+            )
+
+    st.subheader("Kết quả run_eval", icon=":material/fact_check:")
+    files = list_run_files()
+    if not files:
+        st.caption("Chưa có file trong runs/. Chạy run_eval.py để tạo evidence rồi tải lại trang.")
+        return
+    runs = {path.name: cached_run(str(path), path.stat().st_mtime) for path in files}
+    percent_column = st.column_config.ProgressColumn(format="percent", min_value=0, max_value=1)
+    st.dataframe(
+        [run_summary_row(path, runs[path.name]) for path in files],
+        hide_index=True,
+        column_config={
+            "Case accuracy": percent_column,
+            "Routing": percent_column,
+            "Arguments": percent_column,
+            "Multi-turn": percent_column,
+            "Hợp lệ": st.column_config.CheckboxColumn(help="provider_error_cases == 0 và measured_cases == total_cases"),
+        },
+    )
+
+    name = st.selectbox("Xem chi tiết run", list(runs), key="run_file")
+    run = runs[name]
+    summary = run.get("summary", {})
+    with st.container(horizontal=True):
+        st.metric("Case accuracy", percent(summary.get("case_accuracy")), border=True)
+        st.metric("Routing", percent(summary.get("tool_routing_accuracy")), border=True)
+        st.metric("Arguments", percent(summary.get("argument_accuracy")), border=True)
+        st.metric("Multi-turn", percent(summary.get("multiturn_accuracy")), border=True)
+        st.metric("Provider error", summary.get("provider_error_cases"), border=True)
+    with st.container(horizontal=True, gap="small"):
+        if run_is_valid(run):
+            st.badge("Hợp lệ làm evidence", icon=":material/verified:", color="green")
+        else:
+            st.badge("Không hợp lệ làm evidence", icon=":material/block:", color="red")
+        st.badge(run.get("artifact_version") or "không có artifact_version", icon=":material/fingerprint:", color="gray")
+        st.badge(run.get("model") or "không rõ model", icon=":material/memory:", color="gray")
+    if run.get("dataset_role") and run.get("suite") and run["dataset_role"] != run["suite"]:
+        st.warning(
+            f"Run được gắn nhãn suite `{run['suite']}` nhưng dữ liệu là `{run['dataset_role']}` "
+            f"(`{run.get('eval_cases')}`). Sửa nhãn trước khi đưa vào report.",
+            icon=":material/label_off:",
+        )
+
+    only_failed = st.toggle("Chỉ hiện case fail", value=True, key="only_failed")
+    rows = [row for row in run_case_rows(run) if not (only_failed and row["passed"])]
+    st.dataframe(
+        rows,
+        hide_index=True,
+        column_order=["case_id", "is_multiturn", "passed", "case_failure_type", "observed_mismatch", "expected_tool", "actual_tool", "failures"],
+        column_config={
+            "case_id": st.column_config.TextColumn("Case"),
+            "is_multiturn": st.column_config.CheckboxColumn("Multi-turn"),
+            "passed": st.column_config.CheckboxColumn("Pass"),
+            "case_failure_type": st.column_config.TextColumn("Failure type"),
+            "observed_mismatch": st.column_config.TextColumn("Mismatch"),
+            "expected_tool": st.column_config.TextColumn("Kỳ vọng"),
+            "actual_tool": st.column_config.TextColumn("Thực tế"),
+            "failures": st.column_config.TextColumn("Chi tiết", width="large"),
+        },
+    )
+
+
 def render_artifact_tab(artifact: Any) -> None:
     st.subheader("Phiên bản đang chạy", icon=":material/fingerprint:")
     st.caption("Mọi lượt chat ghi lại hash này, nên đổi một ký tự trong prompt hoặc tools cũng tạo version mới.")
@@ -466,19 +664,72 @@ def render_artifact_tab(artifact: Any) -> None:
         ],
         hide_index=True,
     )
+    log_rows = load_version_log()
+    matched = matching_version(log_rows, artifact.prompt_hash, artifact.tools_hash)
+    if matched:
+        st.success(f"Artifact đang chạy khớp dòng `{matched}` trong version_log.csv.", icon=":material/verified:")
+    else:
+        st.warning(
+            "Artifact đang chạy chưa khớp dòng nào trong version_log.csv. Sau khi chạy eval cho bản này, thêm một "
+            "dòng mới với hash ở trên. Git trên Windows có thể đổi xuống dòng LF sang CRLF, nên cùng một file "
+            "vẫn cho hash khác nhau giữa các máy.",
+            icon=":material/rule:",
+        )
     if st.session_state.transcript_path:
         st.caption("Transcript của phiên này")
         st.code(str(st.session_state.transcript_path), language=None, wrap_lines=True)
+
+    st.subheader("Version log", icon=":material/history:")
+    if log_rows:
+        st.dataframe(
+            [
+                {
+                    "Đang chạy": row.get("version") == matched,
+                    **{key: row.get(key) for key in ("version", "author", "changed_artifact", "prompt_hash", "tools_hash", "hypothesis", "metric_name", "metric_before", "metric_after", "run_file")},
+                }
+                for row in log_rows
+            ],
+            hide_index=True,
+            height=(len(log_rows) + 1) * 35 + 3,
+            column_config={
+                "Đang chạy": st.column_config.CheckboxColumn(),
+                "hypothesis": st.column_config.TextColumn("Hypothesis", width="large"),
+            },
+        )
+    else:
+        st.caption("version_log.csv chưa có dòng nào.")
+
+    st.subheader("Kiểm tra schema và ranh giới dữ liệu", icon=":material/verified_user:")
+    st.caption(
+        "Chạy trực tiếp scripts/validate_tools_schema.py và scripts/test_tavily_boundary.py của Role B. "
+        "Kiểm tra Tavily chỉ gọi mạng khi .env có TAVILY_API_KEY."
+    )
+    with st.container(horizontal=True):
+        st.button("Kiểm tra schema tools.yaml", icon=":material/rule:", on_click=run_role_b_check, args=("schema",))
+        st.button("Kiểm tra ranh giới Tavily", icon=":material/shield:", on_click=run_role_b_check, args=("tavily",))
+    for name, label in (("schema", "Schema tools.yaml"), ("tavily", "Ranh giới Tavily")):
+        result = st.session_state.role_b_checks.get(name)
+        if result is None:
+            continue
+        passed = result["passed"]
+        with st.expander(
+            f"{label}: {'PASS' if passed else 'FAIL'}",
+            icon=":material/check_circle:" if passed else ":material/error:",
+            expanded=not passed,
+        ):
+            st.code(result["output"], language=None)
 
     st.subheader("Tools model nhìn thấy", icon=":material/build:")
     tool_rows = []
     for item in load_tool_declarations(TOOLS_PATH):
         parameters = item.get("parameters", {})
+        metadata = tool_metadata(item["name"])
         tool_rows.append({
             "Tool": item["name"],
+            "Nhóm": tool_group(item["name"]),
+            "Ghi dữ liệu": SIDE_EFFECT_LABELS.get(str(metadata.get("side_effect")), str(metadata.get("side_effect", "không rõ"))),
             "Bắt buộc": ", ".join(parameters.get("required", [])),
-            "Tham số": ", ".join(parameters.get("properties", {})),
-            "Mô tả": item.get("description", ""),
+            "Mô tả": " ".join(item.get("description", "").split()),
         })
     st.dataframe(tool_rows, hide_index=True, column_config={"Mô tả": st.column_config.TextColumn(width="large")})
 
@@ -499,13 +750,15 @@ with st.container(horizontal=True, gap="small"):
     st.badge(settings["provider"], icon=":material/cloud:", color="gray")
     st.badge(artifact.version, icon=":material/sell:", color="gray")
 
-chat_tab, log_tab, artifact_tab = st.tabs([
-    ":material/forum: Hội thoại",
-    ":material/receipt_long: Nhật ký chạy",
-    ":material/fingerprint: Artifact",
-])
+# on_change="rerun" keeps the selected tab in session state, so start_eval_case can switch to the chat tab.
+chat_tab, eval_tab, log_tab, artifact_tab = st.tabs(
+    [CHAT_TAB, EVAL_TAB, LOG_TAB, ARTIFACT_TAB],
+    key="main_tab",
+    on_change="rerun",
+)
 
 drift = session_drift(settings, artifact)
+eval_case = st.session_state.eval_case
 with chat_tab:
     if drift:
         st.warning(
@@ -513,18 +766,40 @@ with chat_tab:
             "Bấm **Hội thoại mới** để mỗi transcript chỉ chứa một artifact version.",
             icon=":material/sync_problem:",
         )
-    for past_turn in st.session_state.turns:
-        render_turn(past_turn)
-    if not st.session_state.turns:
-        with st.container(border=True):
-            st.subheader("Bắt đầu bằng một sự cố", icon=":material/add_comment:")
-            st.caption(
-                "Mỗi kịch bản kiểm tra một quyết định của agent: chọn đúng tool, hỏi lại khi thiếu mã, "
-                "gọi hai tool cùng lúc, và xin xác nhận trước khi ghi dữ liệu."
-            )
-            selected = st.pills("Kịch bản demo", list(SCENARIOS), key="scenario", label_visibility="collapsed")
-            if selected:
-                st.session_state.pending_prompt = SCENARIOS[selected]
+    if eval_case:
+        total_turns = len(case_user_turns(eval_case))
+        done_turns = total_turns - len(st.session_state.pending_turns)
+        st.info(
+            f"Đang chạy case **{eval_case['id']}**: lượt {min(done_turns + 1, total_turns)} trên {total_turns}. "
+            "Lượt cuối sẽ được chấm theo kỳ vọng của case.",
+            icon=":material/play_circle:",
+        )
+    # A fixed-height chat panel scrolls on its own; a page-pinned chat_input would pull
+    # every tab to the bottom on each rerun.
+    chat_box = st.container(height=620, border=False, autoscroll=True)
+    with chat_box:
+        for past_turn in st.session_state.turns:
+            render_turn(past_turn)
+        if not st.session_state.turns and not eval_case:
+            with st.container(border=True):
+                st.subheader("Bắt đầu bằng một sự cố", icon=":material/add_comment:")
+                st.caption(
+                    "Mỗi kịch bản kiểm tra một quyết định của agent: chọn đúng tool, hỏi lại khi thiếu mã, "
+                    "gọi hai tool cùng lúc, xin xác nhận trước khi ghi dữ liệu, và tra cứu ticket bằng bonus tool. "
+                    "Muốn chạy đúng case chấm điểm của nhóm, mở tab Eval."
+                )
+                selected = st.pills("Kịch bản demo", list(SCENARIOS), key="scenario", label_visibility="collapsed")
+                if selected:
+                    st.session_state.pending_prompt = SCENARIOS[selected]
+    queue: list[str] = st.session_state.pending_turns
+    prompt = st.chat_input(
+        "Mô tả sự cố IT, ví dụ: máy LT-204 không vào được VPN",
+        submit_mode="disable",
+        disabled=bool(drift) or bool(queue),
+    )
+
+with eval_tab:
+    render_eval_tab()
 
 with log_tab:
     render_log_tab()
@@ -532,11 +807,17 @@ with log_tab:
 with artifact_tab:
     render_artifact_tab(artifact)
 
-prompt = st.chat_input("Mô tả sự cố IT, ví dụ: máy LT-204 không vào được VPN", submit_mode="disable", disabled=bool(drift))
-prompt = prompt or st.session_state.pending_prompt
+from_queue = False
+if not prompt and st.session_state.pending_prompt:
+    prompt = st.session_state.pending_prompt
+if not prompt and queue:
+    prompt, from_queue = queue[0], True
+
 if prompt and not drift:
     st.session_state.pending_prompt = None
-    with chat_tab:
+    if from_queue:
+        queue.pop(0)
+    with chat_box:
         with st.chat_message("user", avatar=":material/person:"):
             st.markdown(prompt)
         with st.chat_message("assistant", avatar=":material/support_agent:"):
@@ -547,4 +828,10 @@ if prompt and not drift:
                 state="error" if turn["status"] == "provider_error" else "complete",
                 expanded=False,
             )
+    # Grade after the case's last user turn, or stop early if the provider failed mid-case.
+    if eval_case and from_queue and (not queue or turn["status"] == "provider_error"):
+        turn["eval_grade"] = grade_turn(eval_case, turn)
+        st.session_state.eval_case = None
+        st.session_state.pending_turns = []
+        write_transcript(st.session_state.transcript_path, st.session_state.transcript)
     st.rerun()
